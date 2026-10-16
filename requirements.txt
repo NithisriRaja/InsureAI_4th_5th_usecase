@@ -1,12 +1,16 @@
-# Backend dependencies (pinned from backend/uv.lock) + the backend package itself.
+# Python packages for both backends: prospect_backend (pinned from its uv.lock, + the package
+# itself) and renewal_backend (same packages + faker).
 # From the project root:
 #   python -m venv .venv            (Python 3.12 or 3.13)
 #   .venv\Scripts\activate          (Git Bash: source .venv/Scripts/activate)
 #   pip install -r requirements.txt
-# Regenerate after changing backend/pyproject.toml:
-#   uv lock --project backend
-#   uv export --project backend --format requirements-txt --no-hashes --no-emit-project --all-groups
--e ./backend
+# Regenerate after changing prospect_backend/pyproject.toml:
+#   uv lock --project prospect_backend
+#   uv export --project prospect_backend --format requirements-txt --no-hashes --no-emit-project --all-groups
+-e ./prospect_backend
+
+# renewal_backend only
+faker>=30.0
 
 aiosqlite==0.22.1
     # via insurance-poc

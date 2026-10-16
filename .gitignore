@@ -14,12 +14,12 @@ build/
 # Data: the input CSVs are tracked. Of the app's own records, only the AI results are tracked
 # (so a fresh copy opens with every prospect already assessed); sessions, raw LLM calls and the
 # audit log stay local.
-data/
-backend/data_csv/system/*
-!backend/data_csv/system/users.csv
-!backend/data_csv/system/batches.csv
-!backend/data_csv/system/runs.csv
-!backend/data_csv/system/recommendations.csv
+/data/
+prospect_backend/data_csv/system/*
+!prospect_backend/data_csv/system/users.csv
+!prospect_backend/data_csv/system/batches.csv
+!prospect_backend/data_csv/system/runs.csv
+!prospect_backend/data_csv/system/recommendations.csv
 *.csv.tmp
 
 # Editors / tools

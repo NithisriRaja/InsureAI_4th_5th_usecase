@@ -1,0 +1,3 @@
+id,customer_id,policy_id,recommendation_id,kind,channel,summary,actor,created_at
+crm_01a14568eed8b830513f9b,cust_pf031,pol_pf031,rec_01a1455e275dd35a461ea4,follow_up_approved,email_sms,Reinstatement approved,Admin (admin),2026-10-16T15:51:07.224325+00:00
+crm_01a14568eee349691bb3d7,cust_pf031,pol_pf031,rec_01a1455e275dd35a461ea4,message_delivered,email_sms,Subject: Your cover has lapsed,system,2026-10-16T15:51:07.235699+00:00
