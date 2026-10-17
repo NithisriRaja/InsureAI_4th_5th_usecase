@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { ShieldCheck, Check, Bell, Menu, X } from "lucide-react";
-import { APP_TAGLINE, NAV } from "@/nav";
+import { APP_TAGLINE, NAV, NAV_GROUPS } from "@/nav";
+import { NavHeading } from "@/nav-heading";
 import { BackendBanner } from "./providers";
 import { ROLES, useSession } from "./session";
 import { Avatar, cx } from "./kit";
@@ -76,25 +77,32 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <span className="block text-[11px] font-medium tracking-wide text-nav-glow/80">{APP_TAGLINE}</span>
         </span>
       </Link>
-      <nav aria-label="Main" className="flex-1 space-y-1 px-3">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = href === "/renewal" ? path === "/renewal" : path.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={cx(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                active ? "bg-brand text-white" : "text-nav-text hover:bg-nav-hover hover:text-white",
-              )}
-            >
-              <Icon className="size-4.5 shrink-0" aria-hidden />
-              {label}
-            </Link>
-          );
-        })}
+      <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-3">
+        {NAV_GROUPS.map((group, i) => (
+          <div key={group.title} role="group" aria-label={group.title}>
+            <NavHeading group={group} first={i === 0} />
+            <div className="space-y-1">
+              {group.items.map(({ href, label, icon: Icon }) => {
+                const active = href === "/renewal" ? path === "/renewal" : path.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={cx(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      active ? "bg-brand text-white" : "text-nav-text hover:bg-nav-hover hover:text-white",
+                    )}
+                  >
+                    <Icon className="size-4.5 shrink-0" aria-hidden />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
       <RoleSwitch />
     </div>

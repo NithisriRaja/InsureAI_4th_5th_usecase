@@ -30,6 +30,12 @@ export const RENEWAL_NAV = [
   { href: "/renewal/workflow", label: "Workflow & Follow-ups", icon: Workflow },
 ];
 
+/** The sidebar shows each use case under its own heading. `tone` is its dot colour (light enough for the dark sidebar). */
+export const NAV_GROUPS = [
+  { title: "New Customers", tone: "bg-[#60a5fa]", items: PROSPECT_NAV },
+  { title: "Renewals & Retention", tone: "bg-[#34d399]", items: RENEWAL_NAV },
+];
+
 export const NAV = [...PROSPECT_NAV, ...RENEWAL_NAV];
 
 export const APP_TAGLINE = "New Customers & Renewals";
