@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Car, HeartPulse, Home, type LucideIcon, PiggyBank, Shield, Sparkles, Umbrella } from "lucide-react";
+import { Building2, Car, HeartPulse, Home, type LucideIcon, PiggyBank, Shield, Sparkles, Umbrella, Users } from "lucide-react";
 import { useState } from "react";
 import { CustomerCell, Empty, PageHeader, Pagination, Panel, RowLink, Table, Tabs, Td, ViewLink } from "@/components/kit";
 import { Badge, ErrorBox, Skeleton } from "@/components/ui";
@@ -11,7 +11,7 @@ import { isChecked, topProduct, useLeads } from "@/lib/leads";
 type View = "all" | "matched" | "none";
 const LIMIT = 10;
 const matched = (l: LeadOut) => !!topProduct(l);
-const ICON: Record<string, LucideIcon> = { motor: Car, medical: HeartPulse, home: Home, personal_accident: Umbrella, life: Shield, savings: PiggyBank, group: Building2 };
+const ICON: Record<string, LucideIcon> = { motor: Car, medical: HeartPulse, home: Home, personal_accident: Umbrella, life: Shield, savings: PiggyBank, group: Building2, family: Users };
 
 export default function ProductsPage() {
   const q = useLeads();

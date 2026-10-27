@@ -7,11 +7,11 @@ const jakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "InsureAI · New Customers & Renewals",
-  description: "AI prospecting, risk checks and product matching, plus policy renewals, retention and personalised offers, with human approval",
+  title: "InsureAI · New Customers",
+  description: "AI prospecting, risk checks and product matching, with human approval",
 };
 
-// Each half of the app has its own providers and sidebar shell: (prospect)/layout.tsx and renewal/layout.tsx.
+// Providers and the sidebar shell live in (prospect)/layout.tsx.
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">

@@ -32,6 +32,7 @@ export const LINE: Record<string, string> = {
   personal_accident: "Personal accident",
   life: "Life & protection",
   savings: "Savings & wealth",
+  family: "Family protection",
   group: "Employee benefits",
 };
 

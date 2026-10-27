@@ -42,8 +42,6 @@ export type NextStep = { title: string; detail: string; owner: string; kind: str
 export type RuleResult = { id: string; passed: boolean; severity: string; reason: string };
 export type Checklist = {
   completeness_pct?: number;
-  documents_required?: string[];
-  documents_missing?: string[];
   evidence_required?: { item: string }[];
 };
 export type Justification = { headline?: string; summary?: string; approver_items?: { title: string; detail: string }[] };

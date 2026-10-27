@@ -54,6 +54,41 @@ async def test_duplicate_ingest_returns_existing(api) -> None:
     assert dup.json()["lead_id"] == first["lead_id"] and dup.json()["created"] is False
 
 
+async def test_refresh_updates_a_duplicate_and_reruns_it(api) -> None:
+    no_consent = {**NEW_LEAD, "consent_marketing": False, "consent_email": False}
+    first = (await api.post("/leads", json=no_consent)).json()
+    await wait_run(api, first["run"]["id"])
+    stopped = (await api.get(f"/leads/{first['lead_id']}")).json()
+    assert stopped["latest_recommendation"]["action"] == "do_not_contact"
+
+    again = await api.post("/leads", params={"refresh": "true"}, json=NEW_LEAD)
+    assert again.status_code == 202
+    body = again.json()
+    assert body["lead_id"] == first["lead_id"] and body["created"] is False
+    assert body["run"]["status"] in ("queued", "running", "succeeded")
+    await wait_run(api, body["run"]["id"])
+    lead = (await api.get(f"/leads/{first['lead_id']}")).json()
+    assert lead["consent_marketing"] is True
+    assert lead["latest_recommendation"]["action"] == "contact_and_quote"
+
+
+async def test_delete_removes_a_lead_and_its_ai_work(api) -> None:
+    made = (await api.post("/leads", json=NEW_LEAD)).json()
+    await wait_run(api, made["run"]["id"])
+    lead_id = made["lead_id"]
+    assert (await api.delete(f"/leads/{lead_id}")).status_code == 204
+    assert (await api.get(f"/leads/{lead_id}")).status_code == 404
+    assert (await api.delete(f"/leads/{lead_id}")).status_code == 404
+    again = await api.post("/leads", json=NEW_LEAD)  # the same person can apply afresh
+    assert again.json()["created"] is True
+
+
+async def test_delete_is_refused_while_the_agents_are_working(api_queue_only) -> None:
+    await api_queue_only.post("/leads/lead_l01/runs")
+    r = await api_queue_only.delete("/leads/lead_l01")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "run_active"
+
+
 async def test_concurrent_identical_ingests_create_one_lead_and_run(api_queue_only) -> None:
     results = await asyncio.gather(
         *(api_queue_only.post("/leads", json=NEW_LEAD) for _ in range(6))

@@ -52,5 +52,7 @@ async def engagement(state: GraphState, config: RunnableConfig) -> dict[str, Any
         "priority": priority.value,
         "channel": channel,
         "band": lead_score["band"],
-        "confidence": lead_score["confidence"],
+        # How sure the AI is of the policy it picked (not of the lead score).
+        "confidence": (state["decisions"].get("product_fit") or {}).get("confidence")
+        or lead_score["confidence"],
     }

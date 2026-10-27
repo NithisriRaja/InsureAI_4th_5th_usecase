@@ -50,6 +50,15 @@ def interest_facts(sig: dict[str, Any]) -> str:
     return ", ".join(bits)
 
 
+def _readiness(score: int) -> str:
+    """The buying-interest score in plain words."""
+    if score >= 70:
+        return "They look ready to buy soon"
+    if score >= 40:
+        return "They show some interest but are not ready to buy yet"
+    return "They look like they are still just browsing, not ready to buy yet"
+
+
 def _first_block(rec: Any, prefixes: tuple[str, ...]) -> str | None:
     for r in rec.rule_results or []:
         if not r.get("passed") and str(r.get("id", "")).startswith(prefixes):
@@ -86,11 +95,7 @@ def compute(rec: Any | None) -> dict[str, Any]:
     score = max(0, min(100, round(float(interest) * 100)))
     band, label = next((b, lbl) for floor, b, lbl in BANDS if score >= floor)
     facts = interest_facts(rec.signals or {})
-    reason = (
-        f"Buying interest {score}%"
-        + (f": {facts}" if facts else "")
-        + ". Consent and data checks passed."
-    )
+    reason = _readiness(score) + (f" ({facts})" if facts else "") + "."
     if rec.action == Action.REFER_TO_UNDERWRITER:
         # Interest is real, but nobody may reach out yet: never shown as "approachable".
         why = _first_block(rec, ("underwriting.",))
@@ -98,12 +103,13 @@ def compute(rec: Any | None) -> dict[str, Any]:
             "score": score,
             "band": "hold",
             "label": "On hold: underwriter first",
-            "reason": f"{score}% buying interest, but an underwriter must clear the risk "
-            f"before anyone calls" + (f" ({why[0].lower() + why[1:]})." if why else "."),
+            "reason": "They look interested, but an underwriter must clear the risk before "
+            "anyone calls" + (f" ({why[0].lower() + why[1:]})." if why else "."),
         }
     if rec.action == Action.NURTURE:
         reason = (
-            f"Only {score}% buying interest" + (f" ({facts})" if facts else "") + ". "
-            "Risk is checked separately, so a low-risk customer can still be low priority."
+            _readiness(score)
+            + (f" ({facts})" if facts else "")
+            + ". Risk is checked separately, so a safe customer can still be a low priority."
         )
     return {"score": score, "band": band, "label": label, "reason": reason}

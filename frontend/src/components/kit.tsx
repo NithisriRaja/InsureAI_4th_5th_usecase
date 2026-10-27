@@ -76,9 +76,9 @@ const ICON_TONE: Record<Tone, string> = {
   brand: "bg-brand-soft text-brand",
 };
 
-export function Stat({ icon: Icon, label, value, sub, tone = "brand" }: { icon: LucideIcon; label: string; value: ReactNode; sub?: string; tone?: Tone }) {
-  return (
-    <Card className="flex items-start justify-between gap-3 p-5">
+export function Stat({ icon: Icon, label, value, sub, tone = "brand", href }: { icon: LucideIcon; label: string; value: ReactNode; sub?: string; tone?: Tone; href?: string }) {
+  const card = (
+    <Card className={cx("flex items-start justify-between gap-3 p-5", href && "transition-shadow hover:shadow-md hover:ring-1 hover:ring-brand/40")}>
       <div className="min-w-0">
         <p className="text-sm font-medium text-muted-ink">{label}</p>
         <p className="mt-2 font-display text-3xl font-bold tracking-tight text-ink">{value}</p>
@@ -88,6 +88,13 @@ export function Stat({ icon: Icon, label, value, sub, tone = "brand" }: { icon: 
         <Icon className="size-5" aria-hidden />
       </span>
     </Card>
+  );
+  return href ? (
+    <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }
 

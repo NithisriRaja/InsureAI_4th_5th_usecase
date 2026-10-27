@@ -66,29 +66,13 @@ def needs_review(f: LeadFacts) -> dict[str, Any]:
 
 def prepare(f: LeadFacts) -> tuple[dict[str, Any], list[RuleResult]]:
     line = rulebook.LINES.get(f.product_line or "")
-    required_docs = list(line["documents"]) if line else []
-    provided = set(f.documents_provided)
-    missing_docs = [d for d in required_docs if d not in provided]
     required_fields = list(line["required"]) if line else []
     have_fields = sum(f.declared.get(k) is not None for k in required_fields)
-    total = len(required_docs) + len(required_fields)
-    held = have_fields + len(required_docs) - len(missing_docs)
-    completeness = round(held / total * 100) if total else 100
+    completeness = round(have_fields / len(required_fields) * 100) if required_fields else 100
     evidence = evidence_requirements(f)
     needs = needs_review(f)
 
     results: list[RuleResult] = []
-    if missing_docs:
-        results.append(
-            RuleResult.fail(
-                "application.documents",
-                Severity.WARN,
-                f"{len(missing_docs)} application document(s) still to collect.",
-                missing=missing_docs,
-            )
-        )
-    else:
-        results.append(RuleResult.ok("application.documents", "All application documents held."))
     if needs.get("type") == "savings" and not needs["affordable"]:
         results.append(
             RuleResult.fail(
@@ -100,8 +84,6 @@ def prepare(f: LeadFacts) -> tuple[dict[str, Any], list[RuleResult]]:
         )
     checklist = {
         "completeness_pct": completeness,
-        "documents_required": required_docs,
-        "documents_missing": missing_docs,
         "evidence_required": evidence,
         "needs": needs,
     }

@@ -1,6 +1,0 @@
-id,recommendation_id,subject_type,subject_id,channel,recipient,body,status,attempts,provider_ref,error,created_at,sent_at
-msg_01a14568eeada9c6c375f9,rec_01a1455e275dd35a461ea4,policy,pol_pf031,email_sms,"anjali.nair.131@example.com, 971585775412","Subject: Your cover has lapsed
-
-Hi Anjali, your Unit-Linked Protection & Savings Plan has lapsed. The overdue monthly premium is 5,860.00 AED. Please contact us to talk about reinstatement. Your financial adviser
-
-Restart your cover: https://portal.example.com/renew/LIF-2017-01131",delivered,1,mock-email_sms-c6c375f9,,2026-10-16T15:51:07.181194+00:00,2026-10-16T15:51:07.229694+00:00

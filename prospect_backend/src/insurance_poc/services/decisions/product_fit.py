@@ -21,6 +21,7 @@ from insurance_poc.services.rules.fairness import redact_text
 
 PURPOSE = "product_fit"
 MAX_ALSO_SUGGEST = 2
+CONFIDENCE_RANGES = {"high": (70, 100), "medium": (40, 85), "low": (0, 55)}
 
 
 class RankedProduct(BaseModel):
@@ -50,6 +51,11 @@ class ProductRanking(BaseModel):
         description="Why the recommended product suits this applicant, each citing a signal.",
     )
     also_suggest: list[AlsoSuggest] = Field(default_factory=list, max_length=MAX_ALSO_SUGGEST)
+    justification: str | None = Field(
+        default=None,
+        max_length=280,
+        description="A short story: why this product is the right one for this customer.",
+    )
     explanation: str = Field(max_length=700, description="Plain-language summary for staff.")
     pitch: str = Field(
         max_length=240,
@@ -75,6 +81,12 @@ class ProductRanking(BaseModel):
         description="Marketing strategies that speak to those pain points.",
     )
     confidence: Confidence
+    confidence_score: int | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description="How sure you are that the recommended product is the right one, 0-100.",
+    )
     needs_review: bool = Field(description="True if a human should look closely before acting.")
     review_reason: str | None = Field(default=None, max_length=300)
 
@@ -95,6 +107,17 @@ Write for a marketing colleague, not an underwriter:
 `reasons` (1-4): why the recommended product suits THIS customer, one short sentence each,
 starting from the customer's fact (e.g. "Has 2 children, so family cover protects them too").
 Each MUST name in `signal` the exact key of the signal it is based on. Do not invent facts.
+`justification`: the headline reason, so make it VERY SHORT: one or two sentences, at most 35
+words, one paragraph, no lists. Warm, plain words, like an adviser telling a colleague why they
+chose it: "Sara is 44 with a 4-year-old and education is her goal, which is exactly what this plan
+is built for." Use only the one or two facts that matter most. Use the customer's first name if
+given, otherwise "they". Say inferences as likely, never as fact the signals do not show, and do
+not claim policy features that are not in the product description. Never mention or guess
+religion, nationality, gender or marital status. No prices or promises.
+`confidence_score`: a whole number 0-100 for how sure you are that the recommended product is
+the right one for this customer. Keep it consistent with `confidence`: high 70-100, medium
+40-85, low 0-55. Lower it when facts are missing, borderline or conflicting, or when the next
+product is almost as good a fit.
 `pitch`: one friendly sentence the team could say to the customer.
 `watch_out`: the one thing to check before quoting, in plain words, or null if nothing.
 `talking_points` (1-3): a plan for the conversation with THIS customer, as short instructions
@@ -127,7 +150,7 @@ are borderline or conflicting.
 
 
 def _texts(r: ProductRanking) -> list[str]:
-    out = [r.explanation, r.pitch, r.watch_out or ""]
+    out = [r.explanation, r.pitch, r.watch_out or "", r.justification or ""]
     out += [x.explanation for x in r.reasons + r.talking_points + r.pain_points]
     out += [p.rationale for p in r.ranked] + [f"{x.title} {x.how}" for x in r.strategies]
     for s in r.also_suggest:
@@ -143,6 +166,13 @@ def validate_ranking(
 ) -> list[str]:
     errs: list[str] = []
     codes = [p.code for p in r.ranked]
+    if r.confidence_score is not None:
+        lo, hi = CONFIDENCE_RANGES[str(r.confidence)]
+        if not lo <= r.confidence_score <= hi:
+            errs.append(
+                f"confidence_score {r.confidence_score} does not match confidence "
+                f"'{r.confidence}' (expected {lo}-{hi})"
+            )
     unknown = [c for c in codes if c not in eligible]
     if unknown:
         errs.append(f"ranked: codes {unknown} are not eligible; allowed: {eligible}")
@@ -215,5 +245,6 @@ async def rank_products(
             "risk_band": risk_band,
             "underwriting_outcome": uw_outcome,
         },
-        validate=lambda r: validate_ranking(r, codes, signals, other_codes),
+        validate=lambda r: validate_ranking(r, codes, signals, other_codes)
+        + ([] if (r.justification or "").strip() else ["justification: write the short story"]),
     )

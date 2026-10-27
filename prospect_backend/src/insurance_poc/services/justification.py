@@ -341,13 +341,6 @@ def _checks_common(rec: Any, rules: list[dict[str, Any]]) -> list[dict[str, str]
     seen = " ".join(i["title"] + " " + i["detail"] for i in items)
     for r in rules:
         if not r["passed"] and r["severity"] == "warn" and _tidy(r["reason"]) not in seen:
-            missing = (r.get("data") or {}).get("missing")
-            if r["id"] == "application.documents" and missing:
-                docs = ", ".join(_human(m) for m in missing)
-                items.append(
-                    _item("rule", "Documents still to collect", docs[:1].upper() + docs[1:])
-                )
-                continue
             title, detail = _split_reason(r["reason"])
             items.append(_item("rule", title, detail))
     if rec.confidence in ("low", "medium"):

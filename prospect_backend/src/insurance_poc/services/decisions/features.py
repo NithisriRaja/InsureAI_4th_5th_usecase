@@ -65,7 +65,6 @@ def lead_signals(f: LeadFacts, checklist: dict[str, Any] | None = None) -> dict[
         sig["property_age_years"] = f.as_of.year - d["property_year"]
     if checklist:
         sig["application_completeness_pct"] = checklist.get("completeness_pct")
-        sig["documents_missing_count"] = len(checklist.get("documents_missing") or [])
         needs = checklist.get("needs") or {}
         if needs.get("type") == "protection":
             sig["protection_gap"] = needs["protection_gap"]

@@ -55,6 +55,21 @@ DECLARED: dict[str, str] = {
     "term_years": "int",
     "annual_income": "money",
     "existing_cover": "money",
+    # family protection
+    "adults_to_cover": "int",
+    "youngest_child_age": "int",
+    "primary_earner": "bool",
+    "monthly_budget": "money",
+    "existing_health_cover": "bool",
+    "family_medical_history": "bool",
+    "home_loan_outstanding": "money",
+    "family_goals": "list",
+    # basic details (step 1 of the application form)
+    "country_of_residence": "str",
+    "emirate": "str",
+    "employment_status": "str",
+    "occupation": "str",
+    "income_band": "str",
     # savings
     "savings_goal": "str",
     "risk_appetite": "str",

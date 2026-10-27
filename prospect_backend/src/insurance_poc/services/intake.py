@@ -52,12 +52,28 @@ async def ingest_lead(
     *,
     batch_id: str | None = None,
     requested_by: str | None = None,
+    refresh: bool = False,
 ) -> tuple[Lead, bool, Run | None]:
     """Create the lead (or find its duplicate) and queue an acquisition run for new leads.
 
     Duplicates are not re-run automatically; the caller can trigger a re-run explicitly.
+    With ``refresh`` a duplicate takes the submitted answers and consent and is re-run.
     """
     lead, created = await leads_repo.create_or_get(s, fields)
+    if not created and refresh:
+        for key, value in fields.items():
+            if key != "external_ref" and hasattr(lead, key):
+                setattr(lead, key, value)
+        run, _ = await enqueue_lead(s, lead.id, batch_id=batch_id, requested_by=requested_by)
+        audit_repo.add_event(
+            s,
+            event_type="lead.refreshed",
+            subject_type="lead",
+            subject_id=lead.id,
+            actor=requested_by or "system",
+            payload={"source": lead.source},
+        )
+        return lead, False, run
     if not created:
         return lead, False, await runs_repo.latest_for(s, SubjectType.LEAD, lead.id)
     audit_repo.add_event(

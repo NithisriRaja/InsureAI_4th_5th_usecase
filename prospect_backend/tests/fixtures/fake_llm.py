@@ -56,6 +56,7 @@ def smart_responder(purpose: str, messages: list[ChatMessage]) -> dict[str, Any]
                 {"code": c, "rationale": "also fits", "reasons": _reason(sig)} for c in others[:1]
             ],
             "explanation": "Recommend the first eligible product.",
+            "justification": "They asked for this cover, and it fits what they told us.",
             "pitch": "This cover fits what you told us.",
             "watch_out": None,
             "talking_points": _reason(sig),

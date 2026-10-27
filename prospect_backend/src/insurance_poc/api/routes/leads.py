@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from insurance_poc.api.deps import db_session, get_database, get_runner
-from insurance_poc.api.errors import not_found
+from insurance_poc.api.errors import AppError, not_found
 from insurance_poc.api.schemas.common import BatchOut, Page, RecBrief, RunBrief, RunOut
 from insurance_poc.api.schemas.leads import (
     LeadBulkIn,
@@ -23,6 +23,7 @@ from insurance_poc.api.schemas.leads import (
 )
 from insurance_poc.api.session_auth import optional_actor
 from insurance_poc.db.models import Lead
+from insurance_poc.db.repositories import audit as audit_repo
 from insurance_poc.db.repositories import leads as leads_repo
 from insurance_poc.db.repositories import recommendations as recs_repo
 from insurance_poc.db.repositories import runs as runs_repo
@@ -73,16 +74,21 @@ async def _lead_out(s: AsyncSession, leads: list[Lead]) -> list[LeadOut]:
 async def ingest_lead(
     body: LeadIn,
     response: Response,
+    refresh: bool = Query(
+        False, description="A duplicate lead takes these answers and is analysed again."
+    ),
     db: Database = Depends(get_database),
     runner: Runner | None = Depends(get_runner),
     actor: str | None = Depends(optional_actor),
 ) -> LeadIngestResult:
     async with db.session() as s:
-        lead, created, run = await intake.ingest_lead(s, body.to_model_fields(), requested_by=actor)
+        lead, created, run = await intake.ingest_lead(
+            s, body.to_model_fields(), requested_by=actor, refresh=refresh
+        )
         result = LeadIngestResult(lead_id=lead.id, created=created, run=RunBrief.of(run))
-    if not created:
+    if not created and not (refresh and run is not None):
         response.status_code = 200
-    elif runner:
+    if runner and (created or refresh):
         runner.notify()
     return result
 
@@ -175,6 +181,35 @@ async def get_lead(lead_id: str, s: AsyncSession = Depends(db_session)) -> LeadD
         consent_email=lead.consent_email,
         consent_sms=lead.consent_sms,
     )
+
+
+@router.delete("/{lead_id}", status_code=204)
+async def delete_lead(
+    lead_id: str,
+    db: Database = Depends(get_database),
+    actor: str | None = Depends(optional_actor),
+) -> Response:
+    """Delete a customer with their AI results. Refused while the agents are still working on
+    them. The audit trail keeps a record that it happened."""
+    async with db.session() as s:
+        lead = await leads_repo.get(s, lead_id)
+        if lead is None:
+            raise not_found("lead", lead_id)
+        if await runs_repo.active_for(s, "lead", lead_id) is not None:
+            raise AppError(
+                409, "run_active", "The agents are still working on this customer. Try again soon."
+            )
+        name = " ".join(filter(None, [lead.first_name, lead.last_name])) or None
+        await leads_repo.delete_with_history(s, lead_id)
+        audit_repo.add_event(
+            s,
+            event_type="lead.deleted",
+            subject_type="lead",
+            subject_id=lead_id,
+            actor=actor or "system",
+            payload={"product_line": lead.product_line, "name": name},
+        )
+    return Response(status_code=204)
 
 
 @router.post(

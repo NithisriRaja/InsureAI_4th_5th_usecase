@@ -29,7 +29,6 @@ def money(major: int) -> int:
 
 # ------------------------------------------------------------------ lines ---
 # family: general | life | group. ``required`` = declared fields the data-quality gate needs.
-# ``documents`` = application documents (missing ones lower completeness, they never block).
 # ``signals`` = declared fields the LLM may see (allow-list; anything else never leaves).
 
 LINES: dict[str, dict[str, Any]] = {
@@ -38,7 +37,6 @@ LINES: dict[str, dict[str, Any]] = {
         "family": "general",
         "owners": (ChannelOwner.BROKER, ChannelOwner.DIRECT),
         "required": ("vehicle_year", "driving_years"),
-        "documents": ("national_id", "driving_licence", "vehicle_registration"),
         "signals": (
             "vehicle_year",
             "vehicle_value",
@@ -52,7 +50,6 @@ LINES: dict[str, dict[str, Any]] = {
         "family": "general",
         "owners": (ChannelOwner.BROKER, ChannelOwner.DIRECT),
         "required": ("smoker",),
-        "documents": ("national_id", "medical_declaration"),
         "signals": ("smoker", "bmi", "pre_existing_conditions", "dependents"),
     },
     Line.HOME: {
@@ -60,7 +57,6 @@ LINES: dict[str, dict[str, Any]] = {
         "family": "general",
         "owners": (ChannelOwner.BROKER, ChannelOwner.DIRECT),
         "required": ("property_year", "rebuild_value"),
-        "documents": ("national_id", "title_deed_or_tenancy"),
         "signals": (
             "property_type",
             "property_year",
@@ -74,7 +70,6 @@ LINES: dict[str, dict[str, Any]] = {
         "family": "general",
         "owners": (ChannelOwner.BROKER, ChannelOwner.DIRECT),
         "required": ("occupation_risk",),
-        "documents": ("national_id",),
         "signals": ("occupation_risk", "dependents"),
     },
     Line.LIFE: {
@@ -82,7 +77,6 @@ LINES: dict[str, dict[str, Any]] = {
         "family": "life",
         "owners": (ChannelOwner.ADVISER,),
         "required": ("smoker", "term_years", "annual_income"),
-        "documents": ("national_id", "proof_of_income", "medical_questionnaire"),
         "signals": (
             "smoker",
             "bmi",
@@ -99,21 +93,50 @@ LINES: dict[str, dict[str, Any]] = {
         "family": "life",
         "owners": (ChannelOwner.ADVISER,),
         "required": ("term_years", "annual_income", "savings_goal"),
-        "documents": ("national_id", "proof_of_income", "source_of_funds"),
         "signals": ("term_years", "annual_income", "savings_goal", "dependents", "risk_appetite"),
+    },
+    Line.FAMILY: {
+        "label": "Family protection",
+        "family": "life",  # advice-led: staff on adviser queue, products regulated
+        "owners": (ChannelOwner.DIRECT, ChannelOwner.ADVISER),
+        "required": ("smoker", "dependents", "annual_income", "term_years"),
+        "signals": (
+            "smoker",
+            "bmi",
+            "pre_existing_conditions",
+            "family_medical_history",
+            "occupation_risk",
+            "adults_to_cover",
+            "dependents",
+            "youngest_child_age",
+            "primary_earner",
+            "annual_income",
+            "monthly_budget",
+            "existing_cover",
+            "existing_health_cover",
+            "home_loan_outstanding",
+            "term_years",
+            "family_goals",
+        ),
     },
     Line.GROUP: {
         "label": "Employee benefits",
         "family": "group",
         "owners": (ChannelOwner.BROKER, ChannelOwner.EMPLOYER),
         "required": ("employee_count",),
-        "documents": ("trade_licence", "employee_census"),
         "signals": ("employee_count", "average_employee_age", "prior_claims_3y", "industry_risk"),
     },
 }
 
 # Money-valued declared fields (stored in minor units, shown to the LLM in major units).
-MONEY_FIELDS = ("vehicle_value", "rebuild_value", "annual_income", "existing_cover")
+MONEY_FIELDS = (
+    "vehicle_value",
+    "rebuild_value",
+    "annual_income",
+    "existing_cover",
+    "monthly_budget",
+    "home_loan_outstanding",
+)
 
 # Lines where the applicant is a company: no date of birth / personal age checks.
 COMPANY_LINES = (Line.GROUP,)
@@ -191,21 +214,21 @@ UNDERWRITING_RULES: list[dict[str, Any]] = [
     },
     {
         "id": "underwriting.pre_existing",
-        "lines": (Line.MEDICAL,),
+        "lines": (Line.MEDICAL, Line.FAMILY),
         "when": {"field": "pre_existing_conditions", "op": "not_empty"},
         "outcome": UW_REFER,
         "reason": "Pre-existing condition declared.",
     },
     {
         "id": "underwriting.bmi",
-        "lines": (Line.MEDICAL, Line.LIFE),
+        "lines": (Line.MEDICAL, Line.LIFE, Line.FAMILY),
         "when": {"field": "bmi", "op": "gte", "value": 40},
         "outcome": UW_REFER,
         "reason": "BMI of 40 or above.",
     },
     {
         "id": "underwriting.smoker_age",
-        "lines": (Line.LIFE,),
+        "lines": (Line.LIFE, Line.FAMILY),
         "when": {
             "all": [
                 {"field": "smoker", "op": "is_true"},
@@ -217,7 +240,7 @@ UNDERWRITING_RULES: list[dict[str, Any]] = [
     },
     {
         "id": "underwriting.serious_condition",
-        "lines": (Line.LIFE,),
+        "lines": (Line.LIFE, Line.FAMILY),
         "when": {
             "field": "pre_existing_conditions",
             "op": "intersects",
@@ -228,14 +251,14 @@ UNDERWRITING_RULES: list[dict[str, Any]] = [
     },
     {
         "id": "underwriting.occupation",
-        "lines": (Line.LIFE, Line.PERSONAL_ACCIDENT),
+        "lines": (Line.LIFE, Line.PERSONAL_ACCIDENT, Line.FAMILY),
         "when": {"field": "occupation_risk", "op": "eq", "value": "high"},
         "outcome": UW_REFER,
         "reason": "High-risk occupation.",
     },
     {
         "id": "underwriting.cover_vs_income",
-        "lines": (Line.LIFE,),
+        "lines": (Line.LIFE, Line.FAMILY),
         "when": {"field": "cover_income_multiple", "op": "gt", "value": 20},
         "outcome": UW_REFER,
         "reason": "Cover above 20x annual income needs financial underwriting.",

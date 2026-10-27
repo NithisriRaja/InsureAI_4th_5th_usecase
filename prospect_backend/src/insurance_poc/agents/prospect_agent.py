@@ -90,7 +90,6 @@ async def prospect(state: GraphState, config: RunnableConfig) -> dict[str, Any]:
             "channel_owner": facts.channel_owner,
             "rules": [r.id for r in results if not r.passed],
             "missing": [m["field"] for m in missing],
-            "documents_missing": checklist.get("documents_missing", []),
             "notes_redactions": fairness_report.redactions,
         },
         subject_type="lead",

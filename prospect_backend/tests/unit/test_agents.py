@@ -134,7 +134,6 @@ async def test_adviser_lead_carries_application_prep(seeded_db):
     llm, provider = fake_llm()
     _, rec = await run_subject(seeded_db, llm, "acquisition", "lead_l13")
     assert rec.channel is None  # adviser follows up; nothing sent to the customer
-    assert rec.checklist["documents_missing"] == ["medical_questionnaire"]
     assert rec.checklist["needs"]["protection_gap"] == 3_500_000
     sig = payload(provider.calls[0]["messages"])["signals"]
     assert sig["protection_gap"] == 3_500_000 and sig["channel_owner"] == "adviser"

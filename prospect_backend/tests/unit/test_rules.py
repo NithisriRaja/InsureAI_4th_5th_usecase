@@ -265,14 +265,13 @@ def test_purchased_list_is_never_profiled() -> None:
 
 def test_application_checklist_life() -> None:
     checklist, results = application.prepare(lead("L13"))
-    assert checklist["documents_missing"] == ["medical_questionnaire"]
     assert [e["item"] for e in checklist["evidence_required"]] == [
         "medical_questionnaire",
         "paramedical_exam",
         "blood_profile",
     ]
     assert checklist["needs"]["protection_gap"] == 3_500_000
-    assert any(r.id == "application.documents" and not r.passed for r in results)
+    assert not any(r.id == "application.documents" for r in results)
 
 
 def test_savings_affordability_flag() -> None:

@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from insurance_poc.db.models import Customer, Lead
+from insurance_poc.db.models import Approval, Customer, Lead, LLMCall, Recommendation, Run
 from insurance_poc.utils.ids import new_id
 from insurance_poc.utils.normalize import lead_dedupe_hash, norm_email, norm_phone
 
@@ -114,6 +114,27 @@ async def list_(
     order = LEAD_SORTS.get(sort, LEAD_SORTS["newest"])
     rows = (await s.execute(q.order_by(*order).limit(limit).offset(offset))).scalars().all()
     return rows, total
+
+
+async def delete_with_history(s: AsyncSession, lead_id: str) -> bool:
+    """Remove a lead with its runs, AI recommendations, approvals and AI call logs.
+
+    The audit trail is append-only and is kept (the caller adds a ``lead.deleted`` event).
+    """
+    lead = await s.get(Lead, lead_id)
+    if lead is None:
+        return False
+    run_ids = select(Run.id).where(Run.subject_type == "lead", Run.subject_id == lead_id)
+    rec_ids = select(Recommendation.id).where(
+        Recommendation.subject_type == "lead", Recommendation.subject_id == lead_id
+    )
+    await s.execute(delete(Approval).where(Approval.recommendation_id.in_(rec_ids)))
+    await s.execute(delete(Recommendation).where(Recommendation.run_id.in_(run_ids)))
+    await s.execute(delete(Recommendation).where(Recommendation.id.in_(rec_ids)))
+    await s.execute(delete(LLMCall).where(LLMCall.run_id.in_(run_ids)))
+    await s.execute(delete(Run).where(Run.id.in_(run_ids)))
+    await s.delete(lead)
+    return True
 
 
 async def set_status(s: AsyncSession, lead_id: str, status: str) -> None:

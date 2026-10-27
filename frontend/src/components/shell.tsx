@@ -8,7 +8,7 @@ import { cx } from "@/components/ui";
 import { APP_TAGLINE, NAV, NAV_GROUPS } from "@/nav";
 import { NavHeading } from "@/nav-heading";
 
-// A customer page keeps the tab it was opened from (?from=risk -> Risk Assessment) lit.
+// A customer page keeps the tab it was opened from (?from=products -> Product Matching) lit.
 function isActive(href: string, path: string, from?: string | null) {
   if (!path.startsWith("/customers")) return path.startsWith(href);
   const origin = NAV.some((n) => n.href === `/${from}`) ? `/${from}` : "/prospects";

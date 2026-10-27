@@ -274,16 +274,6 @@ def for_lead(rec: Any, lead: dict[str, Any]) -> list[dict[str, Any]]:
                 items=[_named(str(x.get("name") or x["code"]), x.get("rationale")) for x in extra],
             )
         )
-    docs = checklist.get("documents_missing") or []
-    if docs:
-        steps.append(
-            _step(
-                f"Collect {len(docs)} document(s) from {first}",
-                _words(docs).capitalize() + ".",
-                team,
-                "collect",
-            )
-        )
     evidence = [
         e.get("item") if isinstance(e, dict) else str(e)
         for e in checklist.get("evidence_required") or []

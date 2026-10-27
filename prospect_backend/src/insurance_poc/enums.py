@@ -14,6 +14,8 @@ class Line(StrEnum):
     # Life, savings (adviser-led, regulated advice)
     LIFE = "life"
     SAVINGS = "savings"
+    # Family protection: a bundle section (health, income, critical illness, education, accident)
+    FAMILY = "family"
     # Employee benefits (broker / employer; the applicant is a company)
     GROUP = "group"
 

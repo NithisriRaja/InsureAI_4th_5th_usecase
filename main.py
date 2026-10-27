@@ -1,11 +1,8 @@
-"""One FastAPI app for both use cases. From this folder: ``python -m uvicorn main:app --reload``.
+"""FastAPI app for new customers (use case 4). From this folder: ``python -m uvicorn main:app --reload``.
 
-Each backend stays its own folder and app; this file only serves them side by side:
+    /prospect/...   new customers   prospect_backend/  (package insurance_poc)
 
-    /prospect/...   new customers (use case 4)        prospect_backend/  (package insurance_poc)
-    /renewal/...    renewals & retention (use case 5)  renewal_backend/
-
-API docs: /prospect/docs and /renewal/docs.
+API docs: /prospect/docs.
 """
 
 from __future__ import annotations
@@ -21,9 +18,8 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "prospect_backend" / "src"))  # works without `pip install -e`
 
 from insurance_poc.main import app as prospect_app  # noqa: E402
-from renewal_backend.main import app as renewal_app  # noqa: E402
 
-APPS = {"/prospect": prospect_app, "/renewal": renewal_app}
+APPS = {"/prospect": prospect_app}
 
 
 @asynccontextmanager
