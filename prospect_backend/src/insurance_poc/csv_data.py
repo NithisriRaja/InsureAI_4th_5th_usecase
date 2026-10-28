@@ -58,6 +58,7 @@ DECLARED: dict[str, str] = {
     # family protection
     "adults_to_cover": "int",
     "youngest_child_age": "int",
+    "children": "list",  # "Name (age)" per child; stored only, never sent to the AI
     "primary_earner": "bool",
     "monthly_budget": "money",
     "existing_health_cover": "bool",
@@ -70,6 +71,8 @@ DECLARED: dict[str, str] = {
     "employment_status": "str",
     "occupation": "str",
     "income_band": "str",
+    "spouse_name": "str",
+    "spouse_age": "int",
     # savings
     "savings_goal": "str",
     "risk_appetite": "str",

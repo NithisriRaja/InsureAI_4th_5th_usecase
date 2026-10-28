@@ -13,7 +13,7 @@ import { LINE } from "@/lib/format";
  * What each policy line needs, taken from the backend rulebook (rulebook.py: required facts,
  * underwriting rules) and the product eligibility columns in products.csv. */
 
-type Kind = "int" | "float" | "money" | "yesno" | "text" | "choice" | "multi" | "conditions" | "bmi";
+type Kind = "int" | "float" | "money" | "yesno" | "text" | "choice" | "multi" | "conditions" | "bmi" | "children";
 type Field = { key: string; label: string; kind: Kind; required?: boolean; hint?: string; options?: [string, string][]; group?: string };
 
 const LEVEL: [string, string][] = [["low", "Low"], ["medium", "Medium"], ["high", "High"]];
@@ -37,7 +37,6 @@ const FIELDS: Record<string, Field[]> = {
     { key: "property_type", label: "Property type", kind: "choice", options: [["apartment", "Apartment"], ["townhouse", "Townhouse"], ["villa", "Villa"]] },
     { key: "property_year", label: "Year built", kind: "int", required: true },
     { key: "rebuild_value", label: "Rebuild value", kind: "money", required: true, hint: "Cost to rebuild the property" },
-    { key: "security_alarm", label: "Security alarm installed?", kind: "yesno" },
     CLAIMS,
   ],
   personal_accident: [
@@ -64,7 +63,7 @@ const FIELDS: Record<string, Field[]> = {
   family: [
     { group: "Your household", key: "adults_to_cover", label: "Adults to cover (including you)", kind: "int", hint: "e.g. 2" },
     { group: "Your household", key: "dependents", label: "Children / dependants to cover", kind: "int", required: true, hint: "0 if none" },
-    { group: "Your household", key: "youngest_child_age", label: "Age of the youngest child", kind: "int", hint: "Leave empty if no children" },
+    { group: "Your household", key: "children", label: "Details of each child or dependant", kind: "children" },
     { group: "Your household", key: "primary_earner", label: "Are you the main earner?", kind: "yesno" },
     { group: "Health", key: "smoker", label: "Does the main applicant smoke?", kind: "yesno", required: true },
     { group: "Health", key: "bmi", label: "Height and weight of the main applicant", kind: "bmi" },
@@ -137,7 +136,7 @@ type Value = string | boolean | string[];
 type Form = Record<string, Value>;
 
 const INITIAL: Form = {};
-const BASIC_KEYS = ["first_name", "last_name", "dob", "gender", "nationality", "country_of_residence", "emirate", "email", "phone", "employment_status", "occupation", "income_band", "marital_status"];
+const BASIC_KEYS = ["first_name", "last_name", "dob", "gender", "nationality", "country_of_residence", "emirate", "email", "phone", "employment_status", "occupation", "income_band", "marital_status", "spouse_name", "spouse_age"];
 // Basic details that are only stored for the record: the backend never uses them in a decision.
 const PROTECTED_KEYS = ["gender", "nationality", "marital_status"];
 const BASIC_FACTS = ["country_of_residence", "emirate", "employment_status", "occupation", "income_band"];
@@ -154,6 +153,12 @@ const text = (f: Form, k: string) => (typeof f[k] === "string" ? (f[k] as string
 
 function validateBasic(f: Form): Record<string, string> {
   const e: Record<string, string> = {};
+  if (f.marital_status === "married") {
+    if (!text(f, "spouse_name")) e.spouse_name = "Required";
+    const age = Number(text(f, "spouse_age"));
+    if (!text(f, "spouse_age")) e.spouse_age = "Required";
+    else if (!(age >= 16 && age <= 110)) e.spouse_age = "Enter an age from 16 to 110";
+  }
   if (!text(f, "first_name")) e.first_name = "Required";
   if (!text(f, "last_name")) e.last_name = "Required";
   const dob = text(f, "dob");
@@ -190,6 +195,9 @@ function validateCover(f: Form): Record<string, string> {
   return e;
 }
 
+/** How many children / dependants to ask about, from the "dependants" answer (at most 10). */
+const childCount = (f: Form) => Math.min(10, Math.max(0, Math.floor(Number(text(f, "dependents")) || 0)));
+
 /** Body mass index from height (cm) and weight (kg), to one decimal; null until both are usable. */
 function bmiOf(f: Form): number | null {
   const h = Number(text(f, "height_cm"));
@@ -201,6 +209,15 @@ function bmiOf(f: Form): number | null {
 function validateDetails(f: Form): Record<string, string> {
   const e: Record<string, string> = {};
   for (const fld of FIELDS[f.product_line as string] ?? []) {
+    if (fld.kind === "children") {
+      for (let i = 1; i <= childCount(f); i++) {
+        if (!text(f, `child_${i}_name`)) e[`child_${i}_name`] = "Required";
+        const age = text(f, `child_${i}_age`);
+        if (!age) e[`child_${i}_age`] = "Required";
+        else if (!(Number(age) >= 0 && Number(age) <= 110)) e[`child_${i}_age`] = "0 to 110";
+      }
+      continue;
+    }
     if (fld.kind === "bmi") {
       const h = text(f, "height_cm");
       const w = text(f, "weight_kg");
@@ -221,7 +238,16 @@ function toDeclared(f: Form): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const fld of FIELDS[f.product_line as string] ?? []) {
     const v = f[fld.key];
-    if (fld.kind === "bmi") {
+    if (fld.kind === "children") {
+      const kids = Array.from({ length: childCount(f) }, (_, i) => ({
+        name: text(f, `child_${i + 1}_name`).replace(/[;|]/g, " ").replace(/^[=+@-]+/, "").trim(),
+        age: Math.round(Number(text(f, `child_${i + 1}_age`))),
+      })).filter((k) => k.name && Number.isFinite(k.age));
+      if (kids.length) {
+        out.children = kids.map((k) => `${k.name} (${k.age})`);
+        out.youngest_child_age = Math.min(...kids.map((k) => k.age));
+      }
+    } else if (fld.kind === "bmi") {
       const b = bmiOf(f);
       if (b !== null) out.bmi = b;
     } else if (fld.kind === "conditions") out[fld.key] = conditionsOf(f, fld.key);
@@ -246,7 +272,11 @@ function toBody(f: Form) {
     phone: opt("phone"),
     product_line: f.product_line as string,
     sum_insured: Math.round(Number(text(f, "sum_insured"))),
-    declared: { ...Object.fromEntries(BASIC_FACTS.filter((k) => text(f, k)).map((k) => [k, text(f, k)])), ...toDeclared(f) },
+    declared: {
+      ...Object.fromEntries(BASIC_FACTS.filter((k) => text(f, k)).map((k) => [k, text(f, k)])),
+      ...(f.marital_status === "married" ? { spouse_name: text(f, "spouse_name"), spouse_age: Math.round(Number(text(f, "spouse_age"))) } : {}),
+      ...toDeclared(f),
+    },
     protected: Object.fromEntries(PROTECTED_KEYS.filter((k) => text(f, k)).map((k) => [k, text(f, k)])),
     source: "web",
     // No consent step: sending the application counts as agreeing to be assessed and contacted
@@ -314,10 +344,29 @@ function Chips({ options, value, onChange, multi }: { options: [string, string][
   );
 }
 
-function Control({ fld, form, set, error }: { fld: Field; form: Form; set: (k: string, v: Value) => void; error?: string }) {
+function Control({ fld, form, set, error, errors }: { fld: Field; form: Form; set: (k: string, v: Value) => void; error?: string; errors?: Record<string, string> }) {
   const v = form[fld.key];
   const str = typeof v === "string" ? v : "";
   let control: ReactNode;
+  if (fld.kind === "children") {
+    const n = childCount(form);
+    if (n === 0) return null;
+    return (
+      <div className="space-y-3">
+        <span className="block pl-1 text-[11px] font-semibold text-ink">{fld.label}</span>
+        {Array.from({ length: n }, (_, i) => (
+          <div key={i} className="grid grid-cols-[1fr_7rem] gap-3">
+            <Row label={`Child ${i + 1}: name`} required error={errors?.[`child_${i + 1}_name`]}>
+              <input className={INPUT} value={text(form, `child_${i + 1}_name`)} onChange={(e) => set(`child_${i + 1}_name`, e.target.value)} />
+            </Row>
+            <Row label="Age" required error={errors?.[`child_${i + 1}_age`]}>
+              <input className={INPUT} type="number" min={0} max={110} inputMode="numeric" value={text(form, `child_${i + 1}_age`)} onChange={(e) => set(`child_${i + 1}_age`, e.target.value)} />
+            </Row>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (fld.kind === "bmi") {
     const b = bmiOf(form);
     const num = (key: string, placeholder: string) => (
@@ -521,6 +570,16 @@ export default function ApplyPage() {
                 <Row label="Marital status">
                   <Select value={text(form, "marital_status")} onChange={(v) => set("marital_status", v)} options={MARITAL} />
                 </Row>
+                {form.marital_status === "married" && (
+                  <>
+                    <Row label="Spouse's name" required error={errors.spouse_name}>
+                      <input className={INPUT} value={text(form, "spouse_name")} onChange={(e) => set("spouse_name", e.target.value)} />
+                    </Row>
+                    <Row label="Spouse's age" required error={errors.spouse_age}>
+                      <input className={INPUT} type="number" min={16} max={110} inputMode="numeric" value={text(form, "spouse_age")} onChange={(e) => set("spouse_age", e.target.value)} />
+                    </Row>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -566,8 +625,8 @@ export default function ApplyPage() {
                   {title && <h3 className="flex items-center gap-2 pt-2 text-sm font-bold text-ink"><span className="size-1.5 rounded-full bg-brand" aria-hidden />{title}</h3>}
                   <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
                     {fields.map((fld) => (
-                      <div key={fld.key} className={fld.kind === "conditions" || fld.kind === "multi" ? "sm:col-span-2" : undefined}>
-                        <Control fld={fld} form={form} set={set} error={errors[fld.key]} />
+                      <div key={fld.key} className={fld.kind === "conditions" || fld.kind === "multi" || fld.kind === "children" ? "sm:col-span-2" : undefined}>
+                        <Control fld={fld} form={form} set={set} error={errors[fld.key]} errors={errors} />
                       </div>
                     ))}
                   </div>

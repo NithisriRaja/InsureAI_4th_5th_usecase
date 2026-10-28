@@ -49,7 +49,7 @@ import { useRunLead } from "@/lib/hooks";
 import { PRIORITY, REC_STATUS } from "@/lib/leads";
 
 type Decisions = Record<string, ScoreDecision | undefined>;
-type ProductFit = { confidence_score?: number | null; reasons?: Reason[]; watch_out?: string | null; justification?: string | null; talking_points?: Reason[]; pain_points?: Reason[] };
+type ProductFit = { confidence_score?: number | null; confidence_reason?: string | null; reasons?: Reason[]; watch_out?: string | null; justification?: string | null; talking_points?: Reason[]; pain_points?: Reason[] };
 
 // Where "Back" returns to: the list the customer was opened from.
 const BACK: Record<string, [string, string]> = {
@@ -287,7 +287,9 @@ function Eyebrow({ children }: { children: ReactNode }) {
 const CONFIDENCE: Record<string, number> = { high: 1, medium: 0.66, low: 0.33 };
 
 /** A ring showing how sure the AI is of its policy pick: the number it reported, or its level (high / medium / low) on older results. */
-function Ring({ level, score }: { level: string; score?: number | null }) {
+function Ring({ level, score, reason, watchOut }: { level: string; score?: number | null; reason?: string | null; watchOut?: string | null }) {
+  const [open, setOpen] = useState(false);
+  const generic = { high: "The facts given match this policy clearly, and no other policy comes close.", medium: "The policy fits, but a few answers are borderline or another policy is close behind.", low: "Important facts are missing or unclear, so a person should look closely before relying on this." }[level] ?? "";
   const fill = typeof score === "number" ? score / 100 : (CONFIDENCE[level] ?? 0);
   const c = 2 * Math.PI * 44;
   return (
@@ -299,7 +301,19 @@ function Ring({ level, score }: { level: string; score?: number | null }) {
         </svg>
         <span className="absolute inset-0 grid place-items-center font-display text-base font-bold text-ink">{typeof score === "number" ? `${score}%` : human(level)}</span>
       </div>
-      <p className="mt-1.5 max-w-24 text-xs font-semibold text-muted-ink">AI confidence in this policy</p>
+      <div className="relative mt-1.5 flex items-start justify-center gap-1">
+        <p className="max-w-24 text-xs font-semibold text-muted-ink">AI confidence in this policy</p>
+        <button type="button" aria-label="Why this confidence?" aria-expanded={open} onClick={() => setOpen(!open)} className="grid size-5 shrink-0 place-items-center rounded-full text-muted-ink hover:bg-ice hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+          <Info className="size-3.5" aria-hidden />
+        </button>
+        {open && (
+          <div role="dialog" className="absolute top-full right-0 z-20 mt-2 w-64 rounded-xl border border-rule bg-card p-3.5 text-left text-xs leading-relaxed font-normal text-ink-2 shadow-lg">
+            <p className="mb-1 text-sm font-bold text-ink">Why {typeof score === "number" ? `${score}%` : human(level)}?</p>
+            <p>{reason || generic}</p>
+            {watchOut && <p className="mt-1.5 text-ink-2">Check: {watchOut}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -339,7 +353,7 @@ function Hero({ rec }: { rec: RecDetail }) {
           )}
         </div>
         <div className="flex items-center gap-5">
-          {rec.confidence && <Ring level={rec.confidence} score={fit?.confidence_score} />}
+          {rec.confidence && <Ring level={rec.confidence} score={fit?.confidence_score} reason={fit?.confidence_reason} watchOut={fit?.watch_out} />}
           {risk?.band && (
             <div className="text-center">
               <RiskBadge band={risk.band} />
@@ -355,7 +369,7 @@ function Hero({ rec }: { rec: RecDetail }) {
             <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-brand uppercase">
               <Sparkles className="size-3.5" aria-hidden /> Why we picked this for {first}
             </p>
-            <Clamp long={(fit?.justification ?? reasons.map((x) => x.explanation).join(" ")).length > 200}>{boldName(fit?.justification ?? reasons.map((x) => x.explanation).join(" "), best?.name)}</Clamp>
+            <Clamp long={(fit?.justification ?? reasons.map((x) => x.explanation).join(" ")).length > 380}>{boldName(fit?.justification ?? reasons.map((x) => x.explanation).join(" "), best?.name)}</Clamp>
             {!fit?.justification && <p className="mt-2 text-xs text-muted-ink">This is an older result. Click &ldquo;Run agents again&rdquo; to get the full story.</p>}
           </div>
           {concerns.length > 0 && (
@@ -716,7 +730,6 @@ function NextSteps({ rec }: { rec: RecDetail }) {
   const steps = ((rec.next_steps ?? []) as NextStep[]).filter((s) => s.kind !== "approve" && s.kind !== "collect");
   const fit = (rec.decisions as Record<string, unknown>).product_fit as ProductFit | undefined;
   const talk = (fit?.talking_points ?? []).map((x) => x.explanation);
-  const worries = (fit?.pain_points ?? []).map((x) => x.explanation);
   return (
     <Panel id="next-steps" icon={<ListChecks className="size-5" />} title="Suggested next actions" action={steps.length > 0 ? <Badge tone="gray">{steps.length} action{steps.length === 1 ? "" : "s"}</Badge> : undefined}>
       {steps.length === 0 ? (
@@ -736,28 +749,29 @@ function NextSteps({ rec }: { rec: RecDetail }) {
           ))}
         </ol>
       )}
-      {(talk.length > 0 || worries.length > 0) && (
+      {talk.length > 0 && (
         <div className="mt-5 space-y-3">
-          {talk.length > 0 && <Bullets title="Talking points for the call" items={talk} />}
-          {worries.length > 0 && <Bullets title="What may worry the customer" items={worries} />}
+          {talk.length > 0 && <TalkingPoints items={talk} />}
         </div>
       )}
     </Panel>
   );
 }
 
-function Bullets({ title, items }: { title: string; items: string[] }) {
+/** The call plan as a short walk-through: numbered, in the order the call would flow. */
+function TalkingPoints({ items }: { items: string[] }) {
   return (
-    <div className="rounded-xl border border-rule p-4">
-      <Eyebrow>{title}</Eyebrow>
-      <ul className="mt-3 space-y-2.5 text-sm leading-snug text-ink-2">
+    <div className="rounded-xl bg-brand-soft p-4">
+      <Eyebrow>Talking points for the call</Eyebrow>
+      <p className="mt-1 text-xs text-muted-ink">A suggested way to run the conversation, in order.</p>
+      <ol className="mt-3 space-y-3">
         {items.map((t, i) => (
-          <li key={i} className="flex gap-2">
-            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
-            {t}
+          <li key={i} className="flex gap-3 text-sm leading-6 text-ink">
+            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-white">{i + 1}</span>
+            <span>{t}</span>
           </li>
         ))}
-      </ul>
+      </ol>
     </div>
   );
 }

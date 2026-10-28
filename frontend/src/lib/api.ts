@@ -109,7 +109,9 @@ export async function api<T>(path: string, opts: { method?: string; query?: Quer
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error;
-    throw new ApiError(res.status, e?.code ?? "error", e?.message ?? `Request failed (${res.status})`);
+    // A 422 says which field was refused; show it so the problem can be found.
+    const why = Array.isArray(e?.details) ? e.details.slice(0, 2).map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).slice(1).join(".")}: ${d.msg}`).join("; ") : "";
+    throw new ApiError(res.status, e?.code ?? "error", `${e?.message ?? `Request failed (${res.status})`}${why ? ` (${why})` : ""}`);
   }
   return data as T;
 }

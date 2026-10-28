@@ -53,7 +53,7 @@ class ProductRanking(BaseModel):
     also_suggest: list[AlsoSuggest] = Field(default_factory=list, max_length=MAX_ALSO_SUGGEST)
     justification: str | None = Field(
         default=None,
-        max_length=280,
+        max_length=420,
         description="A short story: why this product is the right one for this customer.",
     )
     explanation: str = Field(max_length=700, description="Plain-language summary for staff.")
@@ -87,6 +87,11 @@ class ProductRanking(BaseModel):
         le=100,
         description="How sure you are that the recommended product is the right one, 0-100.",
     )
+    confidence_reason: str | None = Field(
+        default=None,
+        max_length=220,
+        description="One short plain sentence: why you are this sure about the pick.",
+    )
     needs_review: bool = Field(description="True if a human should look closely before acting.")
     review_reason: str | None = Field(default=None, max_length=300)
 
@@ -107,24 +112,40 @@ Write for a marketing colleague, not an underwriter:
 `reasons` (1-4): why the recommended product suits THIS customer, one short sentence each,
 starting from the customer's fact (e.g. "Has 2 children, so family cover protects them too").
 Each MUST name in `signal` the exact key of the signal it is based on. Do not invent facts.
-`justification`: the headline reason, so make it VERY SHORT: one or two sentences, at most 35
-words, one paragraph, no lists. Warm, plain words, like an adviser telling a colleague why they
-chose it: "Sara is 44 with a 4-year-old and education is her goal, which is exactly what this plan
-is built for." Use only the one or two facts that matter most. Use the customer's first name if
-given, otherwise "they". Say inferences as likely, never as fact the signals do not show, and do
-not claim policy features that are not in the product description. Never mention or guess
-religion, nationality, gender or marital status. No prices or promises.
+`justification`: the first thing the reader sees, so write it the way a friendly adviser would
+explain it out loud to someone who knows nothing about insurance. One short paragraph, 2-3
+natural sentences, at most 50 words, no lists.
+- Say it as a little story about the person: who they are, what they want, and why this policy
+  is the right answer for them. Example: "Vijay wants AED 1,000,000 of life cover for 5 years.
+  He only has part of that covered today, so this plan fills the missing amount, which is why it
+  beats the other options."
+- Explain every number in words. Always give the currency, and say what it means ("still
+  missing AED 700,000 of cover", never just "a 700,000 protection gap").
+- No insurance jargon at all: avoid protection gap, sum insured, underwriting, eligibility,
+  term, premium, risk profile. Say "cover amount", "how long the plan runs", "what they would
+  pay".
+- Use the first name if the signals give it, otherwise "they". Contractions are fine.
+- Reasonable inference is fine but say it as likely ("probably"), never as fact the signals do
+  not show. Do not claim policy features that are not in the product description.
+- Never mention or guess religion, nationality, gender or marital status. No prices or promises.
 `confidence_score`: a whole number 0-100 for how sure you are that the recommended product is
 the right one for this customer. Keep it consistent with `confidence`: high 70-100, medium
 40-85, low 0-55. Lower it when facts are missing, borderline or conflicting, or when the next
 product is almost as good a fit.
+`confidence_reason`: one short plain sentence (at most 25 words) saying why you are that sure
+about the pick: what makes it a clear choice, or what holds the confidence back (a fact that is
+missing, a borderline answer, or a close second option). No jargon, no codes.
 `pitch`: one friendly sentence the team could say to the customer.
 `watch_out`: the one thing to check before quoting, in plain words, or null if nothing.
-`talking_points` (1-3): a plan for the conversation with THIS customer, as short instructions
-for the caller: what to lead with, a question worth asking, or a concern to be ready for (e.g.
-"Open with the agency-repair option: their car is only 3 years old"). Each MUST name in
-`signal` the fact it comes from. Do not say how or when to contact them (the rules decide that)
-and do not repeat the `reasons` word for word.
+`talking_points` (1-3): how the call with THIS customer could go, written as friendly, natural
+sentences the caller can follow, like a colleague talking them through it: "Start by asking
+Vijay how long he has been thinking about life cover, then explain that this plan is built for
+exactly his situation." One or two sentences each, plain everyday words, in the order the call
+would flow (open, explain, check). Use the customer's first name. Say what to talk about and why
+it matters to them, and when something needs a gentle question, give the question. Never use
+insurance jargon (say "cover amount", not "sum insured"), always give currency with amounts, and
+do not repeat the `reasons` word for word. Each MUST name in `signal` the fact it comes from.
+Do not say how or when to contact them (the rules decide that).
 `pain_points` (1-3): what is likely worrying THIS customer or standing in their way, in plain
 words, worked out from their facts (e.g. "A new car is expensive to repair", "Family relies on
 one income"). Never use or guess personal traits such as religion, nationality or gender.
@@ -151,6 +172,7 @@ are borderline or conflicting.
 
 def _texts(r: ProductRanking) -> list[str]:
     out = [r.explanation, r.pitch, r.watch_out or "", r.justification or ""]
+    out.append(r.confidence_reason or "")
     out += [x.explanation for x in r.reasons + r.talking_points + r.pain_points]
     out += [p.rationale for p in r.ranked] + [f"{x.title} {x.how}" for x in r.strategies]
     for s in r.also_suggest:

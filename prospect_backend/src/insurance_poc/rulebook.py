@@ -62,7 +62,6 @@ LINES: dict[str, dict[str, Any]] = {
             "property_year",
             "rebuild_value",
             "prior_claims_3y",
-            "security_alarm",
         ),
     },
     Line.PERSONAL_ACCIDENT: {
