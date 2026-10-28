@@ -74,7 +74,6 @@ const FIELDS: Record<string, Field[]> = {
     { group: "Money", key: "monthly_budget", label: "Monthly budget for insurance", kind: "money", hint: "What the family is comfortable paying" },
     { group: "Money", key: "existing_cover", label: "Existing life cover", kind: "money" },
     { group: "Money", key: "existing_health_cover", label: "Already have health insurance?", kind: "yesno" },
-    { group: "Money", key: "home_loan_outstanding", label: "Home loan still owed", kind: "money", hint: "0 if none" },
     { group: "Plans", key: "term_years", label: "How many years of cover?", kind: "int", required: true, hint: "e.g. 20, until the children are independent" },
     { group: "Plans", key: "family_goals", label: "What matters most to the family?", kind: "multi", options: [["health", "Health bills"], ["income", "Replace income"], ["illness", "Serious illness"], ["education", "Children's education"], ["accident", "Accidents"]] },
   ],

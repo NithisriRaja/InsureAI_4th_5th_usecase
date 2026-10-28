@@ -48,23 +48,23 @@ async def run_subject(db, llm, use_case: str, subject_id: str):
 
 ACQ = [
     # lead, action, queue, priority, llm calls
-    ("lead_l01", "contact_and_quote", "sales", "high", 3),  # broker-owned
-    ("lead_l02", "contact_and_quote", "sales", "medium", 3),
-    ("lead_l03", "nurture", "sales", "low", 3),
+    ("lead_l01", "contact_and_quote", "sales", "medium", 2),  # broker-owned
+    ("lead_l02", "contact_and_quote", "sales", "medium", 2),
+    ("lead_l03", "nurture", "sales", "low", 2),
     ("lead_l04", "do_not_contact", "sales", "low", 0),
     ("lead_l05", "request_info", "sales", "low", 0),
     ("lead_l06", "refer_to_underwriter", "underwriting", "low", 0),  # knock-out
-    ("lead_l07", "nurture", "sales", "low", 3),
-    ("lead_l08", "contact_and_quote", "sales", "high", 3),
-    ("lead_l09", "refer_to_underwriter", "underwriting", "medium", 3),
-    ("lead_l10", "refer_to_underwriter", "underwriting", "high", 2),
+    ("lead_l07", "nurture", "sales", "low", 2),
+    ("lead_l08", "contact_and_quote", "sales", "high", 2),
+    ("lead_l09", "refer_to_underwriter", "underwriting", "medium", 2),
+    ("lead_l10", "refer_to_underwriter", "underwriting", "medium", 1),
     ("lead_l11", "refer_to_underwriter", "underwriting", "low", 0),  # knock-out
-    ("lead_l12", "refer_to_underwriter", "underwriting", "medium", 3),
-    ("lead_l13", "contact_and_quote", "adviser", "medium", 3),
+    ("lead_l12", "refer_to_underwriter", "underwriting", "medium", 2),
+    ("lead_l13", "contact_and_quote", "adviser", "high", 2),
     ("lead_l14", "request_info", "sales", "low", 0),
-    ("lead_l15", "contact_and_quote", "adviser", "high", 3),
-    ("lead_l16", "contact_and_quote", "adviser", "medium", 3),
-    ("lead_l17", "contact_and_quote", "sales", "high", 3),  # group scheme via broker
+    ("lead_l15", "contact_and_quote", "adviser", "high", 2),
+    ("lead_l16", "contact_and_quote", "adviser", "medium", 2),
+    ("lead_l17", "contact_and_quote", "sales", "medium", 2),  # group scheme via broker
     ("lead_l18", "do_not_contact", "sales", "low", 0),  # purchased list
 ]
 
@@ -175,11 +175,8 @@ async def test_protected_info_never_reaches_llm(seeded_db):
 async def test_prompt_injection_is_data_only(seeded_db):
     llm, provider = fake_llm()
     _, rec = await run_subject(seeded_db, llm, "acquisition", "lead_l07")
-    score_call = next(c for c in provider.calls if c["purpose"] == "lead_score")
-    user = next(m.content for m in score_call["messages"] if m.role == "user")
-    system = next(m.content for m in score_call["messages"] if m.role == "system")
-    assert "IGNORE ALL PREVIOUS INSTRUCTIONS" in user.split("<data>")[1]  # stays inside data
-    assert "untrusted" in system
+    # Lead priority is a plain formula now, so the injected note never reaches any AI call.
+    assert all("IGNORE ALL PREVIOUS INSTRUCTIONS" not in str(c["messages"]) for c in provider.calls)
     assert rec.action == "nurture"  # rules/fake unaffected
 
 
@@ -246,7 +243,6 @@ async def test_audit_trail_per_node(seeded_db):
     assert sorted(llm_rows) == [
         ("product", "product_fit"),
         ("risk", "risk_assessment"),
-        ("scoring", "lead_score"),
     ]
 
 

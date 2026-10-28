@@ -280,7 +280,7 @@ async def test_no_partial_state_on_failure(api, llm_switch) -> None:
             .all()
         )
         lead = await s.get(Lead, "lead_l02")
-    assert recs == [] and lead.status == "failed" and calls["n"] == 2
+    assert recs == [] and lead.status == "failed" and calls["n"] == 1
 
 
 async def test_recommendation_shows_other_products_with_reasons(api) -> None:

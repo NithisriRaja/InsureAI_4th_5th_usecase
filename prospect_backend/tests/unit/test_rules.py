@@ -456,3 +456,22 @@ def test_guardrails_allow_valid() -> None:
 
 def test_facts_carry_no_protected_fields() -> None:
     assert not set(LeadFacts.model_fields) & fairness.PROTECTED_KEYS
+
+
+def test_lead_score_rewards_low_risk_few_dependants_and_a_sensible_amount() -> None:
+    from insurance_poc.services.decisions.lead_score import score_lead
+
+    easy = {
+        "application_completeness_pct": 100,
+        "dependents": 1,
+        "sum_insured": 500000,
+        "annual_income": 120000,
+    }
+    # risk 40 + dependants 20 + amount (4.2x income) 25 + form 10 + filled in themselves 3
+    low = score_lead(easy, "low")
+    assert (low["score"], low["band"]) == (0.98, "hot")
+    assert score_lead(easy, "medium")["score"] == 0.78
+    assert score_lead(easy, "high")["band"] == "warm"
+    heavy = {**easy, "dependents": 4, "sum_insured": 3_000_000}  # 25x income
+    assert score_lead(heavy, "low")["score"] == 0.56
+    assert sum(p["points"] for p in low["breakdown"]) == 98

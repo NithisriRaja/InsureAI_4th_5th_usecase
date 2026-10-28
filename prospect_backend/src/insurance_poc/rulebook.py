@@ -113,7 +113,6 @@ LINES: dict[str, dict[str, Any]] = {
             "monthly_budget",
             "existing_cover",
             "existing_health_cover",
-            "home_loan_outstanding",
             "term_years",
             "family_goals",
         ),

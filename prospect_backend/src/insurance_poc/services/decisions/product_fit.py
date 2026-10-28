@@ -267,6 +267,8 @@ async def rank_products(
             "risk_band": risk_band,
             "underwriting_outcome": uw_outcome,
         },
-        validate=lambda r: validate_ranking(r, codes, signals, other_codes)
-        + ([] if (r.justification or "").strip() else ["justification: write the short story"]),
+        validate=lambda r: (
+            validate_ranking(r, codes, signals, other_codes)
+            + ([] if (r.justification or "").strip() else ["justification: write the short story"])
+        ),
     )

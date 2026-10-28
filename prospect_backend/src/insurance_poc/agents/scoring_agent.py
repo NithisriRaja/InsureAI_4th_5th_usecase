@@ -1,6 +1,6 @@
 """Scoring agent: rank the leads by buying interest.
 
-Lead priority (LLM)."""
+Lead priority is a fixed points formula (``services/decisions/lead_score.py``), not the AI."""
 
 from __future__ import annotations
 
@@ -17,12 +17,13 @@ from insurance_poc.utils.audit import audit
 @node("scoring")
 async def scoring(state: GraphState, config: RunnableConfig) -> dict[str, Any]:
     d = deps(config)
-    result = await score_lead(d.llm, state["signals"], state.get("notes"))
+    risk_band = (state["decisions"].get("risk") or {}).get("band")
+    result = score_lead(state["signals"], risk_band)
     await audit(
         d.db,
         "node.scoring",
-        {"band": result.band, "confidence": result.confidence, "score": result.score},
+        {"band": result["band"], "confidence": result["confidence"], "score": result["score"]},
         subject_type="lead",
         subject_id=state["subject_id"],
     )
-    return {"decisions": {"lead_score": result.model_dump(mode="json")}}
+    return {"decisions": {"lead_score": result}}
