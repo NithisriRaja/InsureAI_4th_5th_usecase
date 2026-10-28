@@ -114,7 +114,6 @@ LINES: dict[str, dict[str, Any]] = {
             "existing_cover",
             "existing_health_cover",
             "term_years",
-            "family_goals",
         ),
     },
     Line.GROUP: {
