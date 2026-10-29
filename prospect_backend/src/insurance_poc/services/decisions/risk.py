@@ -28,7 +28,10 @@ class RiskAssessment(BaseModel):
     score: float = Field(ge=0, le=1, description="0 = lowest risk, 1 = highest; inside the band.")
     confidence: Confidence
     reasons: list[Reason] = Field(min_length=1, max_length=5)
-    summary: str = Field(max_length=400, description="One or two sentences for the underwriter.")
+    summary: str = Field(
+        max_length=500,
+        description="Two or three plain sentences anyone could follow, not jargon for an underwriter.",
+    )
 
 
 INSTRUCTIONS = f"""
@@ -43,6 +46,16 @@ You give indicators only; you never accept, decline or price. The rule outcome
 (clear/refer) is already final; do not contradict or restate it as a decision. Ignore
 engagement/marketing signals for risk.
 {REASON_GUIDE}
+Write every reason's `explanation` for an ordinary person with no insurance background, as a
+short plain-spoken story in one or two sentences (up to ~40 words; this replaces the one-line, 18-word limit above): say what the fact is, what
+it means in everyday life, and why it matters for this plan. Turn ratios into real numbers
+('half of what they earn each year, about AED 100,000 of AED 200,000'). Never use words like
+commitment, exposure, material, sizeable, load, affordability, sum insured or underwriter;
+say 'the amount they pay in', 'the payout', 'a big slice of their income', 'could be a stretch'.
+The `summary` follows the same rules: two or three short, everyday sentences (up to ~60 words)
+that tell the story of the overall risk. Start with the verdict ('Overall this is a medium-risk
+case'), then what works in their favour, then what pushes the risk up, using real numbers. A
+person who knows nothing about insurance must understand it on one read.
 """.strip()
 
 

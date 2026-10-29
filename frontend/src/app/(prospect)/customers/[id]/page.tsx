@@ -20,7 +20,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
-  UserRound,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -200,39 +199,7 @@ function Customer({ id }: { id: string }) {
               <DecisionPanel key={r.id} rec={r} />
             </div>
           )}
-          <Panel id="details" icon={<UserRound className="size-5" />} title="Customer">
-            <Facts
-              rows={[
-                ["Interested in", LINE[l.product_line ?? ""] ?? "—"],
-                ["Cover requested", money(l.sum_insured)],
-                ["Age", ageFrom(l.dob) ?? "—"],
-                ["City", l.city ?? "—"],
-                ["Source", human(l.source)],
-                ["Handled by", `${OWNER[l.channel_owner] ?? l.channel_owner}${l.intermediary ? ` · ${l.intermediary}` : ""}`],
-                ["Added", date(l.created_at)],
-              ]}
-            />
-          </Panel>
-          <Panel id="consent" icon={<ShieldAlert className="size-5" />} title="Contact & consent">
-            <ul className="divide-y divide-rule text-sm">
-              {(
-                [
-                  ["Profiling allowed", l.consent_profiling],
-                  ["Offers allowed", l.consent_marketing],
-                  ["Email allowed", l.consent_email],
-                  ["SMS allowed", l.consent_sms],
-                ] as [string, boolean][]
-              ).map(([k, v]) => (
-                <li key={k} className="flex items-center justify-between py-2.5">
-                  <span className="text-muted-ink">{k}</span>
-                  <span className={cx("flex items-center gap-1.5 font-semibold", v ? "text-ok" : "text-muted-ink")}>
-                    {v ? <CheckCircle2 className="size-4" aria-hidden /> : <XCircle className="size-4" aria-hidden />}
-                    {v ? "Yes" : "No"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Panel>
+          <ApplicationDetails lead={l} />
           {r && <NextSteps rec={r} />}
         </div>
       </div>
@@ -254,6 +221,37 @@ function Panel({ id, icon, title, action, children }: { id?: string; icon: React
       </header>
       {children}
     </section>
+  );
+}
+
+/** Everything the customer filled in on the application form, in the order it was asked. */
+function ApplicationDetails({ lead: l }: { lead: LeadDetail }) {
+  const declared = (l.declared ?? {}) as Record<string, unknown>;
+  const rows: [string, ReactNode][] = [
+    ["Interested in", LINE[l.product_line ?? ""] ?? "—"],
+    ["Cover requested", money(l.sum_insured)],
+    ["Age", ageFrom(l.dob) ?? "—"],
+    ["Email", l.email ?? "—"],
+    ["Phone", l.phone ?? "—"],
+    ["Date of birth", l.dob ? date(l.dob) : "—"],
+    ["City", l.city ?? "—"],
+  ];
+  for (const [k, v] of Object.entries(declared)) {
+    if (v === null || v === undefined || v === "") continue;
+    // Declared money is stored in minor units (cents).
+    rows.push([LABEL[k] ?? human(k), typeof v === "number" && CASH.has(k) ? money(v / 100) : fact(k, v, "")]);
+  }
+  if (l.documents_provided?.length) rows.push(["Documents provided", l.documents_provided.map((x) => human(x)).join(", ")]);
+  if (l.notes) rows.push(["Notes", l.notes]);
+  rows.push(
+    ["Source", human(l.source)],
+    ["Handled by", `${OWNER[l.channel_owner] ?? l.channel_owner}${l.intermediary ? ` · ${l.intermediary}` : ""}`],
+    ["Added", date(l.created_at)],
+  );
+  return (
+    <Panel id="application" icon={<ClipboardList className="size-5" />} title="Application form">
+      <Facts rows={rows} />
+    </Panel>
   );
 }
 
@@ -330,42 +328,36 @@ function Hero({ rec }: { rec: RecDetail }) {
   const first = rec.subject_name?.split(" ")[0] ?? "this customer";
   return (
     <section id="summary" className="scroll-mt-20 rounded-2xl border border-rule bg-card p-5 shadow-card sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        <div className="min-w-0 flex-1 basis-80">
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+        <div className="min-w-0 flex-1 basis-72">
           <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-brand uppercase">
             <Sparkles className="size-3.5" aria-hidden /> What the agents found
           </p>
           {best ? (
             <>
               <h2 className="mt-1.5 font-display text-2xl leading-tight font-bold text-ink">{best.name}</h2>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <Badge tone="brand">Recommended policy</Badge>
                 {best.fit && <Badge tone="green">{human(best.fit)} fit</Badge>}
+                {risk?.band && <RiskBadge band={risk.band} />}
               </div>
             </>
           ) : (
             <>
               <h2 className="mt-2 font-display text-2xl leading-tight font-bold text-ink">{j.headline ?? "No policy was picked"}</h2>
-              <div className="mt-2">
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <Badge tone="amber">No policy picked</Badge>
+                {risk?.band && <RiskBadge band={risk.band} />}
               </div>
             </>
           )}
         </div>
-        <div className="flex items-center gap-5">
-          {rec.confidence && <Ring level={rec.confidence} score={fit?.confidence_score} reason={fit?.confidence_reason} watchOut={fit?.watch_out} />}
-          {risk?.band && (
-            <div className="text-center">
-              <RiskBadge band={risk.band} />
-              <p className="mt-1.5 text-xs font-semibold text-muted-ink">Risk level</p>
-            </div>
-          )}
-        </div>
+        {rec.confidence && <Ring level={rec.confidence} score={fit?.confidence_score} reason={fit?.confidence_reason} watchOut={fit?.watch_out} />}
       </div>
 
       {best && reasons.length > 0 ? (
-        <div className="mt-4">
-          <div className="rounded-xl border border-brand/30 border-l-4 border-l-brand bg-brand-soft px-4 py-3 shadow-sm">
+        <div className="mt-6 space-y-4">
+          <div className="rounded-xl border border-brand/30 border-l-4 border-l-brand bg-brand-soft px-5 py-4 shadow-sm">
             <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-brand uppercase">
               <Sparkles className="size-3.5" aria-hidden /> Why we picked this for {first}
             </p>
@@ -373,12 +365,12 @@ function Hero({ rec }: { rec: RecDetail }) {
             {!fit?.justification && <p className="mt-2 text-xs text-muted-ink">This is an older result. Click &ldquo;Run agents again&rdquo; to get the full story.</p>}
           </div>
           {concerns.length > 0 && (
-            <>
-              <div className="mt-5">
-                <Eyebrow>Keep in mind</Eyebrow>
-              </div>
-              <p className="mt-1.5 text-sm leading-6 text-ink-2">{concerns.map((x) => x.explanation).join(" ")}</p>
-            </>
+            <div className="rounded-xl border border-warn/30 border-l-4 border-l-warn bg-warn-soft px-5 py-4">
+              <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-warn uppercase">
+                <AlertTriangle className="size-3.5" aria-hidden /> Keep in mind
+              </p>
+              <p className="mt-1.5 text-sm leading-6 font-medium text-ink">{concerns.map((x) => x.explanation).join(" ")}</p>
+            </div>
           )}
         </div>
       ) : (
@@ -730,48 +722,42 @@ function NextSteps({ rec }: { rec: RecDetail }) {
   const steps = ((rec.next_steps ?? []) as NextStep[]).filter((s) => s.kind !== "approve" && s.kind !== "collect");
   const fit = (rec.decisions as Record<string, unknown>).product_fit as ProductFit | undefined;
   const talk = (fit?.talking_points ?? []).map((x) => x.explanation);
+  // The call plan lives inside its own step ("In the conversation") instead of repeating below the list.
+  const talkAt = steps.findIndex((s) => s.kind === "talk");
   return (
     <Panel id="next-steps" icon={<ListChecks className="size-5" />} title="Suggested next actions" action={steps.length > 0 ? <Badge tone="gray">{steps.length} action{steps.length === 1 ? "" : "s"}</Badge> : undefined}>
       {steps.length === 0 ? (
         <p className="text-sm text-muted-ink">No next steps for this case.</p>
       ) : (
-        <ol className="space-y-3">
+        <ol className="divide-y divide-rule overflow-hidden rounded-xl border border-rule">
           {steps.map((s, i) => (
-            <li key={i} className="flex gap-3 rounded-xl border border-rule p-4">
-              <span className={cx("grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold", s.kind === "stop" ? "bg-bad-soft text-bad" : "bg-brand-soft text-brand")}>{i + 1}</span>
-              <div className="min-w-0">
-                <p className="font-bold text-ink">{s.title}</p>
-                <p className="text-xs text-muted-ink">{s.owner}</p>
-                {s.detail && <p className="mt-1.5 text-sm leading-relaxed text-ink-2">{s.detail}</p>}
-                {s.quote && <p className="mt-2 rounded-lg bg-ice p-2.5 text-sm text-ink">&ldquo;{s.quote}&rdquo;</p>}
+            <li key={i} className="flex gap-2.5 px-3.5 py-3">
+              <span className={cx("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold", s.kind === "stop" ? "bg-bad-soft text-bad" : "bg-brand-soft text-brand")}>{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-bold text-ink">
+                  {s.title}
+                  <span className="text-[11px] font-medium text-muted-ink">{s.owner}</span>
+                </p>
+                {i === talkAt && talk.length > 0 ? (
+                  <ul className="mt-1.5 space-y-1.5 text-[13px] leading-5 text-ink-2">
+                    {talk.map((t, j) => (
+                      <li key={j} className="flex gap-2">
+                        <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
+                        <span>{t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <>
+                    {s.detail && <p className="mt-1 text-[13px] leading-5 text-ink-2">{s.detail}</p>}
+                    {s.quote && <p className="mt-1.5 rounded-lg bg-ice px-2.5 py-1.5 text-[13px] leading-5 text-ink">&ldquo;{s.quote}&rdquo;</p>}
+                  </>
+                )}
               </div>
             </li>
           ))}
         </ol>
       )}
-      {talk.length > 0 && (
-        <div className="mt-5 space-y-3">
-          {talk.length > 0 && <TalkingPoints items={talk} />}
-        </div>
-      )}
     </Panel>
-  );
-}
-
-/** The call plan as a short walk-through: numbered, in the order the call would flow. */
-function TalkingPoints({ items }: { items: string[] }) {
-  return (
-    <div className="rounded-xl bg-brand-soft p-4">
-      <Eyebrow>Talking points for the call</Eyebrow>
-      <p className="mt-1 text-xs text-muted-ink">A suggested way to run the conversation, in order.</p>
-      <ol className="mt-3 space-y-3">
-        {items.map((t, i) => (
-          <li key={i} className="flex gap-3 text-sm leading-6 text-ink">
-            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-white">{i + 1}</span>
-            <span>{t}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
   );
 }

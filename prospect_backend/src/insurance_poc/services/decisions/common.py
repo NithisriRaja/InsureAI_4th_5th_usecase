@@ -17,7 +17,7 @@ class Confidence(StrEnum):
 
 class Reason(BaseModel):
     signal: str = Field(description="Exact key of the signal this reason is based on.")
-    explanation: str = Field(max_length=300)
+    explanation: str = Field(max_length=400)
 
 
 # How every free-text field should read: a sharp colleague, not a report generator.
